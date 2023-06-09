@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'dart:math';
 
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:runsplit/location_screen.dart';
+import 'package:runsplit/save_run.dart';
+
 class Run extends StatefulWidget {
   const Run({super.key});
 
@@ -29,10 +33,17 @@ class _RunState extends State<Run> {
 
   var currentSplitDuration = 0.0;
   var currentSplitDistance = 0.0;
+  double dlat = 0.0, dlong = 0.0;
   String long = "", lat = "";
   var lats = [];
   var longs = [];
   late StreamSubscription<Position> positionStream;
+  static const CameraPosition initialCameraPosition =
+      CameraPosition(target: LatLng(80.24599079, 29.6593457), zoom: 14);
+
+  late GoogleMapController googleMapController;
+
+  Set<Marker> markers = {};
 
   void initVars() {
     totalTime["h"] = 0;
@@ -132,6 +143,7 @@ class _RunState extends State<Run> {
       //device must move horizontally before an update event is generated;
     );
 
+    // ignore: unused_local_variable
     StreamSubscription<Position> positionStream =
         Geolocator.getPositionStream(locationSettings: locationSettings)
             .listen((Position position) {
@@ -143,6 +155,9 @@ class _RunState extends State<Run> {
                 lats[lats.length - 2], longs[longs.length - 2]);
       }
       speed = 60 / position.speed;
+      dlong = position.longitude;
+      dlat = position.latitude;
+
       long = position.longitude.toString();
       lat = position.latitude.toString();
 
@@ -268,7 +283,7 @@ class _RunState extends State<Run> {
                   const SizedBox(height: 40),
                   Text(
                     "Instantaneous speed: " +
-                        (60 / speed).toStringAsFixed(3) +
+                        (speed).toStringAsFixed(1) +
                         " km/h",
                     style: const TextStyle(fontSize: 20),
                   ),
@@ -306,9 +321,23 @@ class _RunState extends State<Run> {
                           child: const Text("SPLIT")),
                       const SizedBox(width: 30),
                       ElevatedButton(
-                          onPressed: () => {}, child: const Text("STOP"))
+                          onPressed: () => {
+                                Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) => const SaveRun()))
+                              },
+                          child: const Text("STOP"))
                     ],
                   ),
+                  ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const LocationScreen()));
+                      },
+                      child: const Text("MAP")),
                 ]))));
   }
 }

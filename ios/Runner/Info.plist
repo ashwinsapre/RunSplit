@@ -4,6 +4,10 @@
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This application requires location services to work</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Always and when in use!</string>
+	<key>NSLocationUsageDescription</key>
+    <string>Older devices need location.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This application requires location services to work</string>
 	<key>CFBundleDevelopmentRegion</key>
