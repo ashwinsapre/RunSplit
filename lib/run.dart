@@ -15,22 +15,17 @@ class _RunState extends State<Run> {
   var dsplit = [0.0];
   var tsplit = [0.0];
   var currDistance = 0.0;
-  var time = 0.0;
   bool servicestatus = false;
   bool haspermission = false;
   late LocationPermission permission;
   late Position position;
   var speed = 0.0;
-  var totalTime = 0.0;
-  var currHrs = 0;
-  var currMins = 0;
-  var currSecs = 0;
-  var totalHrs = 0;
-  var totalMins = 0;
-  var totalSecs = 0;
+  var overallTime = 0.0;
 
-  var avgPace = Map();
-  var splitPace = Map();
+  var totalTime = <String, int>{};
+  var currTime = <String, int>{};
+  var avgPace = <String, int>{};
+  var splitPace = <String, int>{};
 
   var currentSplitDuration = 0.0;
   var currentSplitDistance = 0.0;
@@ -39,9 +34,49 @@ class _RunState extends State<Run> {
   var longs = [];
   late StreamSubscription<Position> positionStream;
 
+  void initVars() {
+    totalTime["h"] = 0;
+    totalTime["m"] = 0;
+    totalTime["s"] = 0;
+
+    currTime["h"] = 0;
+    currTime["m"] = 0;
+    currTime["s"] = 0;
+
+    avgPace["m"] = 0;
+    avgPace["s"] = 0;
+
+    splitPace["m"] = 0;
+    splitPace["s"] = 0;
+  }
+
+  @override
   void initState() {
     checkGps();
+    initVars();
     super.initState();
+  }
+
+  Future<bool> _onWillPop() async {
+    return (await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Terminate Run'),
+            content: const Text(
+                'Are you sure you want to exit? This unsaved activity will be lost!'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Continue Run'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Terminate Run'),
+              ),
+            ],
+          ),
+        )) ??
+        false;
   }
 
   checkGps() async {
@@ -115,31 +150,36 @@ class _RunState extends State<Run> {
           (stopwatch.elapsedMilliseconds / 1000 - tsplit[tsplit.length - 1]);
       currentSplitDistance = (currDistance - dsplit[dsplit.length - 1]);
 
-      totalTime = stopwatch.elapsedMilliseconds / 1000.0;
-      totalHrs = (totalTime / 3600).floor();
-      totalMins = (((totalTime / 3600) - totalHrs) * 60.0).floor();
-      totalSecs =
-          (((((totalTime / 3600) - totalHrs) * 60.0) - totalMins) * 60.0)
-              .floor();
-      currHrs = (currentSplitDuration / 3600).floor();
-      currMins = (((currentSplitDuration / 3600) - currHrs) * 60.0).floor();
-      currSecs =
-          (((((currentSplitDuration / 3600) - currHrs) * 60.0) - currMins) *
+      overallTime = stopwatch.elapsedMilliseconds / 1000.0;
+      totalTime['h'] = (overallTime / 3600).floor();
+      totalTime['m'] =
+          (((overallTime / 3600) - totalTime['h']!) * 60.0).floor();
+      totalTime['s'] = (((((overallTime / 3600) - totalTime['h']!) * 60.0) -
+                  totalTime['m']!) *
+              60.0)
+          .floor();
+      currTime['h'] = (currentSplitDuration / 3600).floor();
+      currTime['m'] =
+          (((currentSplitDuration / 3600) - currTime['h']!) * 60.0).floor();
+      currTime['s'] =
+          (((((currentSplitDuration / 3600) - currTime['h']!) * 60.0) -
+                      currTime['m']!) *
                   60.0)
               .floor();
 
-      avgPace['h'] =
-          currDistance > 0.01 ? (totalTime / (60.0 * currDistance)).floor() : 0;
-      avgPace['min'] = currDistance > 0.01
-          ? (((totalTime / (60.0 * currDistance)) -
-                      (totalTime / (60.0 * currDistance)).floor()) *
+      avgPace['h'] = currDistance > 0.01
+          ? (overallTime / (60.0 * currDistance)).floor()
+          : 0;
+      avgPace['m'] = currDistance > 0.01
+          ? (((overallTime / (60.0 * currDistance)) -
+                      (overallTime / (60.0 * currDistance)).floor()) *
                   60.0)
               .floor()
           : 0;
       splitPace['h'] = currentSplitDistance > 0.01
           ? (currentSplitDuration / (60.0 * currentSplitDistance)).floor()
           : 0;
-      splitPace['min'] = currentSplitDistance > 0.01
+      splitPace['m'] = currentSplitDistance > 0.01
           ? (((currentSplitDuration / (60.0 * currentSplitDistance)) -
                       (currentSplitDuration / (60.0 * currentSplitDistance))
                           .floor()) *
@@ -189,81 +229,86 @@ class _RunState extends State<Run> {
   @override
   Widget build(BuildContext context) {
     stopwatch.start();
-    return Scaffold(
-        appBar: AppBar(
-            title: const Text("Track Run"), backgroundColor: Colors.redAccent),
-        body: Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.all(50),
-            child: Column(children: [
-              Text(servicestatus ? "GPS is Enabled" : "GPS is disabled."),
-              Text(haspermission ? "GPS is Enabled" : "GPS is disabled."),
-              const SizedBox(height: 40),
-              Text(
-                "Distance: " + currDistance.toStringAsFixed(3) + " km",
-                style: const TextStyle(fontSize: 25),
-              ),
-              Text(
-                "Total time: " +
-                    (totalHrs).toStringAsFixed(0) +
-                    "h:" +
-                    (totalMins).toStringAsFixed(0) +
-                    "m:" +
-                    (totalSecs).toStringAsFixed(0) +
-                    "s",
-                style: const TextStyle(fontSize: 25),
-              ),
-              Text(
-                // ignore: prefer_interpolation_to_compose_strings
-                "Average Pace: " +
-                    avgPace['h'].toString() +
-                    ":" +
-                    avgPace['min'].toString() +
-                    " min/km",
-                style: const TextStyle(fontSize: 25),
-              ),
-              const SizedBox(height: 40),
-              Text(
-                "Instantaneous speed: " +
-                    (60 / speed).toStringAsFixed(3) +
-                    " km/h",
-                style: const TextStyle(fontSize: 20),
-              ),
-              Text(
-                "Split pace: " +
-                    splitPace['h'].toString() +
-                    ":" +
-                    splitPace['min'].toString() +
-                    " min/km",
-                style: const TextStyle(fontSize: 20),
-              ),
-              Text(
-                "Split duration: " +
-                    (currHrs).toStringAsFixed(0) +
-                    "h:" +
-                    (currMins).toStringAsFixed(0) +
-                    "m:" +
-                    (currSecs).toStringAsFixed(0) +
-                    "s",
-                style: const TextStyle(fontSize: 20),
-              ),
-              Text(
-                // ignore: prefer_interpolation_to_compose_strings
-                "Split distance:" +
-                    currentSplitDistance.toStringAsFixed(3) +
-                    " km",
-                style: const TextStyle(fontSize: 20),
-              ),
-              const SizedBox(height: 50),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                      onPressed: createNewSplit, child: const Text("SPLIT")),
-                  const SizedBox(width: 30),
-                  ElevatedButton(onPressed: () => {}, child: const Text("STOP"))
-                ],
-              ),
-            ])));
+    return WillPopScope(
+        onWillPop: _onWillPop,
+        child: Scaffold(
+            appBar: AppBar(
+                title: const Text("Track Run"),
+                backgroundColor: Colors.redAccent),
+            body: Container(
+                alignment: Alignment.center,
+                padding: const EdgeInsets.all(50),
+                child: Column(children: [
+                  Text(servicestatus ? "GPS is Enabled" : "GPS is disabled."),
+                  Text(haspermission ? "GPS is Enabled" : "GPS is disabled."),
+                  const SizedBox(height: 40),
+                  Text(
+                    "Distance: " + currDistance.toStringAsFixed(3) + " km",
+                    style: const TextStyle(fontSize: 25),
+                  ),
+                  Text(
+                    "Total time: " +
+                        (totalTime['h']!).toStringAsFixed(0) +
+                        "h:" +
+                        (totalTime['m']!).toStringAsFixed(0) +
+                        "m:" +
+                        (totalTime['s']!).toStringAsFixed(0) +
+                        "s",
+                    style: const TextStyle(fontSize: 25),
+                  ),
+                  Text(
+                    // ignore: prefer_interpolation_to_compose_strings
+                    "Average Pace: " +
+                        avgPace['h'].toString() +
+                        ":" +
+                        avgPace['m'].toString() +
+                        " min/km",
+                    style: const TextStyle(fontSize: 25),
+                  ),
+                  const SizedBox(height: 40),
+                  Text(
+                    "Instantaneous speed: " +
+                        (60 / speed).toStringAsFixed(3) +
+                        " km/h",
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  Text(
+                    "Split pace: " +
+                        splitPace['h'].toString() +
+                        ":" +
+                        splitPace['m'].toString() +
+                        " min/km",
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  Text(
+                    "Split duration: " +
+                        (currTime['h']!).toStringAsFixed(0) +
+                        "h:" +
+                        (currTime['m']!).toStringAsFixed(0) +
+                        "m:" +
+                        (currTime['s']!).toStringAsFixed(0) +
+                        "s",
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  Text(
+                    // ignore: prefer_interpolation_to_compose_strings
+                    "Split distance:" +
+                        currentSplitDistance.toStringAsFixed(3) +
+                        " km",
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  const SizedBox(height: 50),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton(
+                          onPressed: createNewSplit,
+                          child: const Text("SPLIT")),
+                      const SizedBox(width: 30),
+                      ElevatedButton(
+                          onPressed: () => {}, child: const Text("STOP"))
+                    ],
+                  ),
+                ]))));
   }
 }
