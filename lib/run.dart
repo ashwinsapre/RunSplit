@@ -29,6 +29,7 @@ class _RunState extends State<Run> {
   var currTime = <String, int>{};
   var avgPace = <String, int>{};
   var splitPace = <String, int>{};
+  var currPosition = <String, double>{};
 
   var currentSplitDuration = 0.0;
   var currentSplitDistance = 0.0;
@@ -38,7 +39,7 @@ class _RunState extends State<Run> {
   var longs = [];
   late StreamSubscription<Position> positionStream;
   static const CameraPosition initialCameraPosition =
-      CameraPosition(target: LatLng(80.24599079, 29.6593457), zoom: 14);
+      CameraPosition(target: LatLng(80.24599079, 29.6593457), zoom: 30.0);
 
   late GoogleMapController googleMapController;
 
@@ -129,13 +130,13 @@ class _RunState extends State<Run> {
     //print(position.longitude); //Output: 80.24599079
     //print(position.latitude); //Output: 29.6593457
     //speed = position.speed;
-    dlat = position.latitude;
-    dlong = position.longitude;
+    currPosition['lat'] = position.latitude;
+    currPosition['long'] = position.longitude;
     long = position.longitude.toString();
     lat = position.latitude.toString();
 
-    print("Latitude = " + dlat.toString());
-    print("Longitude = " + dlong.toString());
+    print("Latitude = " + currPosition['lat'].toString());
+    print("Longitude = " + currPosition['long'].toString());
 
     setState(() {
       //refresh UI
@@ -151,16 +152,16 @@ class _RunState extends State<Run> {
     StreamSubscription<Position> positionStream =
         Geolocator.getPositionStream(locationSettings: locationSettings)
             .listen((Position position) {
-      longs.add(position.longitude);
-      lats.add(position.latitude);
+      currPosition['long'] = position.longitude;
+      currPosition['lat'] = position.latitude;
+      longs.add(currPosition['long']);
+      lats.add(currPosition['lat']);
       if (longs.length > 1) {
         currDistance = currDistance +
             calculateDistance(lats[lats.length - 1], longs[longs.length - 1],
                 lats[lats.length - 2], longs[longs.length - 2]);
       }
       speed = 60 / position.speed;
-      dlong = position.longitude;
-      dlat = position.latitude;
 
       long = position.longitude.toString();
       lat = position.latitude.toString();
@@ -248,8 +249,8 @@ class _RunState extends State<Run> {
   @override
   Widget build(BuildContext context) {
     stopwatch.start();
-    CameraPosition initialCameraPosition =
-        CameraPosition(target: LatLng(dlat, dlong), zoom: 10);
+    CameraPosition initialCameraPosition = CameraPosition(
+        target: LatLng(currPosition['lat']!, currPosition['long']!), zoom: 10);
     return WillPopScope(
         onWillPop: _onWillPop,
         child: Scaffold(
@@ -266,7 +267,6 @@ class _RunState extends State<Run> {
                         mapType: MapType.normal,
                         markers: markers,
                         zoomControlsEnabled: false,
-                        myLocationButtonEnabled: false,
                         onMapCreated: (GoogleMapController controller) {
                           googleMapController = controller;
                         },
@@ -350,7 +350,7 @@ class _RunState extends State<Run> {
                               },
                           child: const Text("STOP"))
                     ],
-                  )
+                  ),
                 ]))));
   }
 }
