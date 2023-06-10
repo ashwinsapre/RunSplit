@@ -4,7 +4,6 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:math';
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:runsplit/location_screen.dart';
 import 'package:runsplit/save_run.dart';
 
 class Run extends StatefulWidget {
@@ -130,8 +129,13 @@ class _RunState extends State<Run> {
     //print(position.longitude); //Output: 80.24599079
     //print(position.latitude); //Output: 29.6593457
     //speed = position.speed;
+    dlat = position.latitude;
+    dlong = position.longitude;
     long = position.longitude.toString();
     lat = position.latitude.toString();
+
+    print("Latitude = " + dlat.toString());
+    print("Longitude = " + dlong.toString());
 
     setState(() {
       //refresh UI
@@ -244,6 +248,8 @@ class _RunState extends State<Run> {
   @override
   Widget build(BuildContext context) {
     stopwatch.start();
+    CameraPosition initialCameraPosition =
+        CameraPosition(target: LatLng(dlat, dlong), zoom: 10);
     return WillPopScope(
         onWillPop: _onWillPop,
         child: Scaffold(
@@ -252,11 +258,26 @@ class _RunState extends State<Run> {
                 backgroundColor: Colors.redAccent),
             body: Container(
                 alignment: Alignment.center,
-                padding: const EdgeInsets.all(50),
                 child: Column(children: [
-                  Text(servicestatus ? "GPS is Enabled" : "GPS is disabled."),
-                  Text(haspermission ? "GPS is Enabled" : "GPS is disabled."),
-                  const SizedBox(height: 40),
+                  SizedBox(
+                      height: 300,
+                      child: GoogleMap(
+                        initialCameraPosition: initialCameraPosition,
+                        mapType: MapType.normal,
+                        markers: markers,
+                        zoomControlsEnabled: false,
+                        myLocationButtonEnabled: false,
+                        onMapCreated: (GoogleMapController controller) {
+                          googleMapController = controller;
+                        },
+                      )),
+                  Text(
+                    servicestatus ? "GPS is Enabled" : "GPS is disabled.",
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  Text(haspermission ? "GPS is Enabled" : "GPS is disabled.",
+                      style: const TextStyle(fontSize: 10)),
+                  const SizedBox(height: 20),
                   Text(
                     "Distance: " + currDistance.toStringAsFixed(3) + " km",
                     style: const TextStyle(fontSize: 25),
@@ -329,15 +350,7 @@ class _RunState extends State<Run> {
                               },
                           child: const Text("STOP"))
                     ],
-                  ),
-                  ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const LocationScreen()));
-                      },
-                      child: const Text("MAP")),
+                  )
                 ]))));
   }
 }
