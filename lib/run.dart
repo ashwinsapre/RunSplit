@@ -15,6 +15,7 @@ class Run extends StatefulWidget {
 
 class _RunState extends State<Run> {
   final stopwatch = Stopwatch();
+  bool displayStats = false;
   var dsplit = [0.0];
   var tsplit = [0.0];
   var currDistance = 0.0;
@@ -32,14 +33,18 @@ class _RunState extends State<Run> {
   var currPosition = <String, double>{};
   List<LatLng> positions = [];
   final Set<Polyline> _polylines = {};
+  var initPosition;
 
   var currentSplitDuration = 0.0;
   var currentSplitDistance = 0.0;
   double dlat = 0.0, dlong = 0.0;
   var lats = [];
   var longs = [];
+
   late StreamSubscription<Position> positionStream;
   late GoogleMapController googleMapController;
+  static const LatLng src = LatLng(37.1234567, -122.12345678);
+  Position? currentPosition;
 
   Set<Marker> markers = {};
 
@@ -136,6 +141,9 @@ class _RunState extends State<Run> {
     StreamSubscription<Position> positionStream =
         Geolocator.getPositionStream(locationSettings: locationSettings)
             .listen((Position position) {
+      currentPosition = position;
+      debugPrint(currentPosition!.latitude.toString() +
+          currentPosition!.longitude.toString());
       currPosition['long'] = position.longitude;
       currPosition['lat'] = position.latitude;
       positions.add(LatLng(position.latitude, position.longitude));
@@ -205,6 +213,13 @@ class _RunState extends State<Run> {
     stopwatch.stop();
   }
 
+  void startRun() {
+    dsplit = [0.0];
+    tsplit = [0.0];
+    displayStats = true;
+    stopwatch.start();
+  }
+
   getPolyLine() {
     setState(() {
       _polylines.add(Polyline(
@@ -240,93 +255,121 @@ class _RunState extends State<Run> {
 
   @override
   Widget build(BuildContext context) {
-    stopwatch.start();
-    CameraPosition initialCameraPosition = CameraPosition(
-        target: LatLng(currPosition['lat']!, currPosition['long']!), zoom: 16);
     return WillPopScope(
         onWillPop: _onWillPop,
         child: Scaffold(
             appBar: AppBar(
                 title: const Text("Track Run"),
                 backgroundColor: Colors.redAccent),
-            body: Container(
-                alignment: Alignment.center,
-                child: Column(children: [
-                  SizedBox(
-                      height: 300,
-                      child: GoogleMap(
-                        initialCameraPosition: initialCameraPosition,
-                        mapType: MapType.normal,
-                        markers: markers,
-                        zoomControlsEnabled: false,
-                        myLocationEnabled: true,
-                        onMapCreated: (GoogleMapController controller) {
-                          googleMapController = controller;
-                        },
-                        //polylines: getPolyLine(),
-                      )),
-                  Text(
-                    servicestatus ? "GPS is Enabled" : "GPS is disabled.",
-                    style: const TextStyle(fontSize: 10),
-                  ),
-                  Text(haspermission ? "GPS is Enabled" : "GPS is disabled.",
-                      style: const TextStyle(fontSize: 10)),
-                  const SizedBox(height: 20),
-                  Text(
-                    "Distance: ${currDistance.toStringAsFixed(3)} km",
-                    style: const TextStyle(fontSize: 25),
-                  ),
-                  Text(
-                    "Total time: ${(totalTime['h']!).toStringAsFixed(0)}h:${(totalTime['m']!).toStringAsFixed(0)}m:${(totalTime['s']!).toStringAsFixed(0)}s",
-                    style: const TextStyle(fontSize: 25),
-                  ),
-                  Text(
-                    // ignore: prefer_interpolation_to_compose_strings
-                    "Average Pace: " +
-                        avgPace['h'].toString() +
-                        ":" +
-                        avgPace['m'].toString() +
-                        " min/km",
-                    style: const TextStyle(fontSize: 25),
-                  ),
-                  const SizedBox(height: 40),
-                  Text(
-                    "Instantaneous speed: ${(speed).toStringAsFixed(1)} km/h",
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                  Text(
-                    "Split pace: ${splitPace['h']}:${splitPace['m']} min/km",
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                  Text(
-                    "Split duration: ${(currTime['h']!).toStringAsFixed(0)}h:${(currTime['m']!).toStringAsFixed(0)}m:${(currTime['s']!).toStringAsFixed(0)}s",
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                  Text(
-                    // ignore: prefer_interpolation_to_compose_strings
-                    "Split distance:" +
-                        currentSplitDistance.toStringAsFixed(3) +
-                        " km",
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                  const SizedBox(height: 50),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton(
-                          onPressed: createNewSplit,
-                          child: const Text("SPLIT")),
-                      const SizedBox(width: 30),
-                      ElevatedButton(
-                          onPressed: () => {
-                                Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) => const SaveRun()))
-                              },
-                          child: const Text("STOP"))
-                    ],
-                  ),
-                ]))));
+            body: currentPosition == null
+                ? const Center(
+                    child: Text("Loading..."),
+                  )
+                : Container(
+                    alignment: Alignment.center,
+                    child: Column(children: [
+                      SizedBox(
+                          height: 300,
+                          child: GoogleMap(
+                            initialCameraPosition: CameraPosition(
+                                target: LatLng(currentPosition!.latitude,
+                                    currentPosition!.longitude),
+                                zoom: 17),
+                            mapType: MapType.normal,
+                            markers: {
+                              const Marker(
+                                  markerId: MarkerId('start'), position: src)
+                            },
+                            zoomControlsEnabled: false,
+                            myLocationEnabled: true,
+                            onMapCreated: (GoogleMapController controller) {
+                              googleMapController = controller;
+                            },
+                            //polylines: getPolyLine(),
+                          )),
+                      Text(
+                        servicestatus ? "GPS is Enabled" : "GPS is disabled.",
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                      Text(
+                          haspermission ? "GPS is Enabled" : "GPS is disabled.",
+                          style: const TextStyle(fontSize: 10)),
+                      const SizedBox(height: 20),
+                      displayStats == false
+                          ? Text("--")
+                          : Text(
+                              "Distance: ${currDistance.toStringAsFixed(3)} km",
+                              style: const TextStyle(fontSize: 25),
+                            ),
+                      displayStats == false
+                          ? Text("--")
+                          : Text(
+                              "Total time: ${(totalTime['h']!).toStringAsFixed(0)}h:${(totalTime['m']!).toStringAsFixed(0)}m:${(totalTime['s']!).toStringAsFixed(0)}s",
+                              style: const TextStyle(fontSize: 25),
+                            ),
+                      displayStats == false
+                          ? Text("--")
+                          : Text(
+                              // ignore: prefer_interpolation_to_compose_strings
+                              "Average Pace: " +
+                                  avgPace['h'].toString() +
+                                  ":" +
+                                  avgPace['m'].toString() +
+                                  " min/km",
+                              style: const TextStyle(fontSize: 25),
+                            ),
+                      const SizedBox(height: 40),
+                      displayStats == false
+                          ? Text("--")
+                          : Text(
+                              "Instantaneous speed: ${(speed).toStringAsFixed(1)} km/h",
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                      displayStats == false
+                          ? Text("--")
+                          : Text(
+                              "Split pace: ${splitPace['h']}:${splitPace['m']} min/km",
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                      displayStats == false
+                          ? Text("--")
+                          : Text(
+                              "Split duration: ${(currTime['h']!).toStringAsFixed(0)}h:${(currTime['m']!).toStringAsFixed(0)}m:${(currTime['s']!).toStringAsFixed(0)}s",
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                      displayStats == false
+                          ? Text("--")
+                          : Text(
+                              // ignore: prefer_interpolation_to_compose_strings
+                              "Split distance:" +
+                                  currentSplitDistance.toStringAsFixed(3) +
+                                  " km",
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                      const SizedBox(height: 50),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton(
+                            onPressed: displayStats ? null : startRun,
+                            child: const Text("START"),
+                          ),
+                          const SizedBox(width: 30),
+                          ElevatedButton(
+                              onPressed: createNewSplit,
+                              child: const Text("SPLIT")),
+                          const SizedBox(width: 30),
+                          ElevatedButton(
+                              onPressed: () => {
+                                    Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                const SaveRun()))
+                                  },
+                              child: const Text("STOP"))
+                        ],
+                      ),
+                    ]))));
   }
 }
