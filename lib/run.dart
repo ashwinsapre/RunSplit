@@ -30,17 +30,15 @@ class _RunState extends State<Run> {
   var avgPace = <String, int>{};
   var splitPace = <String, int>{};
   var currPosition = <String, double>{};
+  List<LatLng> positions = [];
+  final Set<Polyline> _polylines = {};
 
   var currentSplitDuration = 0.0;
   var currentSplitDistance = 0.0;
   double dlat = 0.0, dlong = 0.0;
-  String long = "", lat = "";
   var lats = [];
   var longs = [];
   late StreamSubscription<Position> positionStream;
-  static const CameraPosition initialCameraPosition =
-      CameraPosition(target: LatLng(80.24599079, 29.6593457), zoom: 30.0);
-
   late GoogleMapController googleMapController;
 
   Set<Marker> markers = {};
@@ -64,6 +62,7 @@ class _RunState extends State<Run> {
   @override
   void initState() {
     checkGps();
+    getLocation();
     initVars();
     super.initState();
   }
@@ -98,9 +97,9 @@ class _RunState extends State<Run> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          print('Location permissions are denied');
+          debugPrint('Location permissions are denied');
         } else if (permission == LocationPermission.deniedForever) {
-          print("'Location permissions are permanently denied");
+          debugPrint("'Location permissions are permanently denied");
         } else {
           haspermission = true;
         }
@@ -109,38 +108,23 @@ class _RunState extends State<Run> {
       }
 
       if (haspermission) {
-        setState(() {
-          //refresh the UI
-        });
-
+        setState(() {});
         getLocation();
       }
     } else {
-      print("GPS Service is not enabled, turn on GPS location");
+      debugPrint("GPS Service is not enabled, turn on GPS location");
     }
 
-    setState(() {
-      //refresh the UI
-    });
+    setState(() {});
   }
 
   getLocation() async {
     position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high);
-    //print(position.longitude); //Output: 80.24599079
-    //print(position.latitude); //Output: 29.6593457
-    //speed = position.speed;
     currPosition['lat'] = position.latitude;
     currPosition['long'] = position.longitude;
-    long = position.longitude.toString();
-    lat = position.latitude.toString();
-
-    print("Latitude = " + currPosition['lat'].toString());
-    print("Longitude = " + currPosition['long'].toString());
-
-    setState(() {
-      //refresh UI
-    });
+    positions.add(LatLng(position.latitude, position.longitude));
+    setState(() {});
 
     LocationSettings locationSettings = const LocationSettings(
       accuracy: LocationAccuracy.high, //accuracy of the location data
@@ -154,6 +138,7 @@ class _RunState extends State<Run> {
             .listen((Position position) {
       currPosition['long'] = position.longitude;
       currPosition['lat'] = position.latitude;
+      positions.add(LatLng(position.latitude, position.longitude));
       longs.add(currPosition['long']);
       lats.add(currPosition['lat']);
       if (longs.length > 1) {
@@ -162,9 +147,6 @@ class _RunState extends State<Run> {
                 lats[lats.length - 2], longs[longs.length - 2]);
       }
       speed = 60 / position.speed;
-
-      long = position.longitude.toString();
-      lat = position.latitude.toString();
 
       currentSplitDuration =
           (stopwatch.elapsedMilliseconds / 1000 - tsplit[tsplit.length - 1]);
@@ -206,9 +188,7 @@ class _RunState extends State<Run> {
                   60.0)
               .floor()
           : 0;
-      setState(() {
-        //refresh UI on update
-      });
+      setState(() {});
     });
   }
 
@@ -223,6 +203,18 @@ class _RunState extends State<Run> {
     tsplit.add(stopwatch.elapsedMilliseconds / 1000);
     dsplit.add(currDistance);
     stopwatch.stop();
+  }
+
+  getPolyLine() {
+    setState(() {
+      _polylines.add(Polyline(
+        polylineId: const PolylineId("abc"),
+        visible: true,
+        //latlng is List<LatLng>
+        points: positions,
+        color: Colors.blue,
+      ));
+    });
   }
 
   double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -250,7 +242,7 @@ class _RunState extends State<Run> {
   Widget build(BuildContext context) {
     stopwatch.start();
     CameraPosition initialCameraPosition = CameraPosition(
-        target: LatLng(currPosition['lat']!, currPosition['long']!), zoom: 10);
+        target: LatLng(currPosition['lat']!, currPosition['long']!), zoom: 16);
     return WillPopScope(
         onWillPop: _onWillPop,
         child: Scaffold(
@@ -267,9 +259,11 @@ class _RunState extends State<Run> {
                         mapType: MapType.normal,
                         markers: markers,
                         zoomControlsEnabled: false,
+                        myLocationEnabled: true,
                         onMapCreated: (GoogleMapController controller) {
                           googleMapController = controller;
                         },
+                        //polylines: getPolyLine(),
                       )),
                   Text(
                     servicestatus ? "GPS is Enabled" : "GPS is disabled.",
@@ -279,17 +273,11 @@ class _RunState extends State<Run> {
                       style: const TextStyle(fontSize: 10)),
                   const SizedBox(height: 20),
                   Text(
-                    "Distance: " + currDistance.toStringAsFixed(3) + " km",
+                    "Distance: ${currDistance.toStringAsFixed(3)} km",
                     style: const TextStyle(fontSize: 25),
                   ),
                   Text(
-                    "Total time: " +
-                        (totalTime['h']!).toStringAsFixed(0) +
-                        "h:" +
-                        (totalTime['m']!).toStringAsFixed(0) +
-                        "m:" +
-                        (totalTime['s']!).toStringAsFixed(0) +
-                        "s",
+                    "Total time: ${(totalTime['h']!).toStringAsFixed(0)}h:${(totalTime['m']!).toStringAsFixed(0)}m:${(totalTime['s']!).toStringAsFixed(0)}s",
                     style: const TextStyle(fontSize: 25),
                   ),
                   Text(
@@ -303,27 +291,15 @@ class _RunState extends State<Run> {
                   ),
                   const SizedBox(height: 40),
                   Text(
-                    "Instantaneous speed: " +
-                        (speed).toStringAsFixed(1) +
-                        " km/h",
+                    "Instantaneous speed: ${(speed).toStringAsFixed(1)} km/h",
                     style: const TextStyle(fontSize: 20),
                   ),
                   Text(
-                    "Split pace: " +
-                        splitPace['h'].toString() +
-                        ":" +
-                        splitPace['m'].toString() +
-                        " min/km",
+                    "Split pace: ${splitPace['h']}:${splitPace['m']} min/km",
                     style: const TextStyle(fontSize: 20),
                   ),
                   Text(
-                    "Split duration: " +
-                        (currTime['h']!).toStringAsFixed(0) +
-                        "h:" +
-                        (currTime['m']!).toStringAsFixed(0) +
-                        "m:" +
-                        (currTime['s']!).toStringAsFixed(0) +
-                        "s",
+                    "Split duration: ${(currTime['h']!).toStringAsFixed(0)}h:${(currTime['m']!).toStringAsFixed(0)}m:${(currTime['s']!).toStringAsFixed(0)}s",
                     style: const TextStyle(fontSize: 20),
                   ),
                   Text(

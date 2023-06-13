@@ -9,7 +9,7 @@ class SaveRun extends StatelessWidget {
     return Scaffold(
         appBar: AppBar(
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          title: Text("Save Run"),
+          title: const Text("Save Run"),
         ),
         body: Center(
           child: Column(
@@ -20,12 +20,12 @@ class SaveRun extends StatelessWidget {
                     onPressed: () {
                       Navigator.pushAndRemoveUntil(context,
                           MaterialPageRoute(builder: (BuildContext context) {
-                        return MyApp();
+                        return const MyApp();
                       }), (r) {
                         return false;
                       });
                     },
-                    child: Text("Home"))
+                    child: const Text("Home"))
               ]),
         ));
   }
